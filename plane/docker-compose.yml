@@ -225,15 +225,6 @@ services:
         condition: any
     environment:
       <<: *proxy-env
-    ports:
-      - target: 80
-        published: ${LISTEN_HTTP_PORT:-80}
-        protocol: tcp
-        mode: host
-      - target: 443
-        published: ${LISTEN_HTTPS_PORT:-443}
-        protocol: tcp
-        mode: host
     volumes:
       - proxy_config:/config
       - proxy_data:/data
@@ -243,6 +234,17 @@ services:
       - space
       - admin
       - live
+    networks:
+      - default
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.plane.rule=Host(`${APP_DOMAIN}`)"
+      - "traefik.http.routers.plane.entrypoints=websecure"
+      - "traefik.http.routers.plane.tls=true"
+      - "traefik.http.routers.plane.service=plane"
+      - "traefik.http.services.plane.loadbalancer.server.port=80"
+      - "traefik.docker.network=proxy"
 
 volumes:
   pgdata:
@@ -255,3 +257,8 @@ volumes:
   rabbitmq_data:
   proxy_config:
   proxy_data:
+
+networks:
+  proxy:
+    external: true
+    name: proxy
