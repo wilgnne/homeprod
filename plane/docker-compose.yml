@@ -61,6 +61,38 @@ x-app-env: &app-env
   WEBHOOK_ALLOWED_IPS: ${WEBHOOK_ALLOWED_IPS:-}
   WEBHOOK_ALLOWED_HOSTS: ${WEBHOOK_ALLOWED_HOSTS:-}
 
+x-plane-app-resources: &plane-app-resources
+  limits:
+    cpus: "${PLANE_CPU_LIMIT:-0.50}"
+    memory: "${PLANE_MEMORY_LIMIT:-1000M}"
+  reservations:
+    cpus: "${PLANE_CPU_RESERVATION:-0.05}"
+    memory: "${PLANE_MEMORY_RESERVATION:-50M}"
+
+x-postgres-resources: &postgres-resources
+  limits:
+    cpus: "${POSTGRES_CPU_LIMIT:-1.00}"
+    memory: "${POSTGRES_MEMORY_LIMIT:-1G}"
+  reservations:
+    cpus: "${POSTGRES_CPU_RESERVATION:-0.25}"
+    memory: "${POSTGRES_MEMORY_RESERVATION:-256M}"
+
+x-medium-infra-resources: &medium-infra-resources
+  limits:
+    cpus: "${INFRA_MEDIUM_CPU_LIMIT:-0.50}"
+    memory: "${INFRA_MEDIUM_MEMORY_LIMIT:-512M}"
+  reservations:
+    cpus: "${INFRA_MEDIUM_CPU_RESERVATION:-0.10}"
+    memory: "${INFRA_MEDIUM_MEMORY_RESERVATION:-128M}"
+
+x-small-infra-resources: &small-infra-resources
+  limits:
+    cpus: "${INFRA_SMALL_CPU_LIMIT:-0.25}"
+    memory: "${INFRA_SMALL_MEMORY_LIMIT:-256M}"
+  reservations:
+    cpus: "${INFRA_SMALL_CPU_RESERVATION:-0.05}"
+    memory: "${INFRA_SMALL_MEMORY_RESERVATION:-64M}"
+
 services:
   web:
     image: makeplane/plane-frontend:${APP_RELEASE:-stable}
@@ -68,6 +100,7 @@ services:
       replicas: ${WEB_REPLICAS:-1}
       restart_policy:
         condition: any
+      resources: *plane-app-resources
     depends_on:
       - api
       - worker
@@ -78,6 +111,7 @@ services:
       replicas: ${SPACE_REPLICAS:-1}
       restart_policy:
         condition: any
+      resources: *plane-app-resources
     depends_on:
       - api
       - worker
@@ -89,6 +123,7 @@ services:
       replicas: ${ADMIN_REPLICAS:-1}
       restart_policy:
         condition: any
+      resources: *plane-app-resources
     depends_on:
       - api
       - web
@@ -101,6 +136,7 @@ services:
       replicas: ${LIVE_REPLICAS:-1}
       restart_policy:
         condition: any
+      resources: *plane-app-resources
     depends_on:
       - api
       - web
@@ -112,6 +148,7 @@ services:
       replicas: ${API_REPLICAS:-1}
       restart_policy:
         condition: any
+      resources: *plane-app-resources
     volumes:
       - logs_api:/code/plane/logs
     environment:
@@ -128,6 +165,7 @@ services:
       replicas: ${WORKER_REPLICAS:-1}
       restart_policy:
         condition: any
+      resources: *plane-app-resources
     volumes:
       - logs_worker:/code/plane/logs
     environment:
@@ -145,6 +183,7 @@ services:
       replicas: ${BEAT_WORKER_REPLICAS:-1}
       restart_policy:
         condition: any
+      resources: *plane-app-resources
     volumes:
       - logs_beat-worker:/code/plane/logs
     environment:
@@ -162,6 +201,7 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
+      resources: *plane-app-resources
     volumes:
       - logs_migrator:/code/plane/logs
     environment:
@@ -178,6 +218,7 @@ services:
       replicas: 1
       restart_policy:
         condition: any
+      resources: *postgres-resources
     environment:
       <<: *db-env
     volumes:
@@ -189,6 +230,7 @@ services:
       replicas: 1
       restart_policy:
         condition: any
+      resources: *small-infra-resources
     volumes:
       - redisdata:/data
 
@@ -198,6 +240,7 @@ services:
       replicas: 1
       restart_policy:
         condition: any
+      resources: *medium-infra-resources
     environment:
       <<: *mq-env
     volumes:
@@ -211,6 +254,7 @@ services:
       replicas: 1
       restart_policy:
         condition: any
+      resources: *medium-infra-resources
     environment:
       <<: *minio-env
     volumes:
@@ -223,6 +267,7 @@ services:
       replicas: 1
       restart_policy:
         condition: any
+      resources: *small-infra-resources
     environment:
       <<: *proxy-env
     volumes:
