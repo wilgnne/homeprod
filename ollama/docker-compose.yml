@@ -4,6 +4,8 @@ services:
     container_name: ollama
     volumes:
       - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_FLASH_ATTENTION=1
     deploy:
       resources:
         reservations:
