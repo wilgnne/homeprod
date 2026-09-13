@@ -26,7 +26,7 @@ services:
     networks:
       - engine
 
-  freetoken-proxy:
+  proxy:
     build: ./proxy
     restart: unless-stopped
     ports:
@@ -46,6 +46,14 @@ services:
     networks:
       - engine
       - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.freetoken.rule=Host(`freetoken.lab.wilgnne.dev`)"
+      - "traefik.http.routers.freetoken.entrypoints=websecure"
+      - "traefik.http.routers.freetoken.tls=true"
+      - "traefik.http.routers.freetoken.service=freetoken"
+      - "traefik.http.services.freetoken.loadbalancer.server.port=11434"
+      - "traefik.docker.network=proxy"
 
 volumes:
   huggingface_cache:
