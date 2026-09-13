@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import datetime, timezone
 
 import httpx
 import pytest
@@ -130,10 +131,30 @@ async def test_first_chat_waits_for_real_readiness(system):
     await asyncio.sleep(0.05)
     assert fake.starts == 1
     assert not any(req.url.path == "/v1/chat/completions" for req in fake.requests)
+    assert (await asyncio.wait_for(client.get("/api/ps"), 0.2)).json() == {"models": []}
     fake.ready = True
     result = await asyncio.wait_for(task, 2)
     assert result.status_code == 200
     assert result.json()["message"]["content"] == "Oi"
+    loaded = (await client.get("/api/ps")).json()["models"][0]
+    assert loaded["model"] == "gemma"
+    assert datetime.fromisoformat(loaded["expires_at"]) > datetime.now(timezone.utc)
+
+
+@pytest.mark.asyncio
+async def test_ps_reports_parseable_expiry_during_stream_and_indefinite_keep_alive(system):
+    client, fake, _ = system
+    fake.stream_started = asyncio.Event()
+    fake.stream_continue = asyncio.Event()
+    task = asyncio.create_task(client.post("/api/chat", json={"model": "gemma", "messages": [{"role": "user", "content": "Oi"}], "keep_alive": -1}))
+    await asyncio.wait_for(fake.stream_started.wait(), 1)
+    active = (await asyncio.wait_for(client.get("/api/ps"), 0.2)).json()["models"][0]
+    assert active["model"] == active["name"] == "gemma"
+    assert datetime.fromisoformat(active["expires_at"]) > datetime.now(timezone.utc)
+    fake.stream_continue.set()
+    assert (await task).status_code == 200
+    pinned = (await client.get("/api/ps")).json()["models"][0]
+    assert pinned["expires_at"] == "9999-12-31T23:59:59Z"
 
 
 @pytest.mark.asyncio

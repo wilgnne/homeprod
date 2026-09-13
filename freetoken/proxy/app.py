@@ -362,18 +362,37 @@ def create_app(
 
     @app.get("/api/ps")
     async def ps():
-        async with proxy.lock:
-            st = await proxy.status()
-            if not st.get("running"):
-                return {"models": []}
-            spec = next((s for s in proxy.catalog.values() if s.model == st.get("model")), None)
-            if spec is None:
-                return {"models": []}
-            expiry = datetime.fromtimestamp(time.time() + max(0, (proxy.deadline or time.monotonic()) - time.monotonic()), timezone.utc)
-            entry = tag(spec, proxy.modified_at)
-            entry["expires_at"] = expiry.isoformat().replace("+00:00", "Z") if proxy.deadline is not None else None
-            entry["size_vram"] = 0
-            return {"models": [entry]}
+        # Loading holds the lifecycle lock; polling loaded models must not wait for it.
+        st = await proxy._daemon("GET", "/engine/status")
+        if not st.get("running"):
+            return {"models": []}
+        spec = next((s for s in proxy.catalog.values() if s.model == st.get("model")), None)
+        if spec is None:
+            return {"models": []}
+        try:
+            health = await proxy.client.get(proxy.serve_url + "/health", timeout=3)
+            report = health.json() if health.status_code == 200 else {}
+        except (httpx.RequestError, ValueError, TypeError):
+            return {"models": []}
+        if not isinstance(report, dict):
+            return {"models": []}
+        if report.get("status") != "ok" or report.get("maintenance", "serving") != "serving":
+            return {"models": []}
+
+        if proxy.active or not proxy.deadline_initialized:
+            remaining = proxy.idle_seconds
+        elif proxy.deadline is None:
+            # Ollama clients, including Open WebUI, expect a parseable timestamp.
+            expires_at = "9999-12-31T23:59:59Z"
+            remaining = None
+        else:
+            remaining = max(0, proxy.deadline - time.monotonic())
+        if remaining is not None:
+            expires_at = datetime.fromtimestamp(time.time() + remaining, timezone.utc).isoformat().replace("+00:00", "Z")
+        entry = tag(spec, proxy.modified_at)
+        entry["expires_at"] = expires_at
+        entry["size_vram"] = 0
+        return {"models": [entry]}
 
     @app.post("/api/chat")
     async def chat(request: Request):
