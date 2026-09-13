@@ -1,4 +1,4 @@
-"""Small Ollama-shaped HTTP facade for a single FreeToken daemon/serve pair."""
+"""Ollama and OpenAI HTTP facade for a single FreeToken daemon/serve pair."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from typing import Any, AsyncIterator
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from starlette.background import BackgroundTask
 
 log = logging.getLogger("freetoken_ollama_proxy")
@@ -86,6 +86,15 @@ def tag(spec: Model, modified_at: str) -> dict[str, Any]:
         "digest": hashlib.sha256(spec.model.encode()).hexdigest(),
         "details": model_details(spec),
     }
+
+
+def openai_alias(doc: Any, name: str) -> Any:
+    if isinstance(doc, dict):
+        if "model" in doc:
+            doc["model"] = name
+        if isinstance(doc.get("response"), dict) and "model" in doc["response"]:
+            doc["response"]["model"] = name
+    return doc
 
 
 def ollama_tools(calls: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -285,13 +294,13 @@ class Proxy:
                     continue
                 await self._stop()
 
-    async def upstream(self, path: str, payload: dict[str, Any], stream: bool) -> httpx.Response:
+    async def upstream(self, path: str, payload: dict[str, Any], stream: bool, *, raise_on_error: bool = True) -> httpx.Response:
         try:
             request = self.client.build_request("POST", self.serve_url + path, json=payload)
             response = await self.client.send(request, stream=stream)
         except httpx.RequestError as exc:
             raise HTTPException(502, f"FreeToken serve unavailable: {exc}") from exc
-        if response.status_code >= 400:
+        if raise_on_error and response.status_code >= 400:
             content = await response.aread()
             await response.aclose()
             raise HTTPException(502, f"FreeToken returned HTTP {response.status_code}: {content.decode(errors='replace')[:500]}")
@@ -325,7 +334,7 @@ def create_app(
         finally:
             await proxy.close()
 
-    app = FastAPI(title="FreeToken Ollama proxy", version=VERSION, lifespan=lifespan)
+    app = FastAPI(title="FreeToken Ollama/OpenAI proxy", version=VERSION, lifespan=lifespan)
     app.state.proxy = proxy
 
     def find_model(body: dict[str, Any]) -> Model:
@@ -354,6 +363,20 @@ def create_app(
     @app.get("/api/tags")
     async def tags():
         return {"models": [tag(spec, proxy.modified_at) for spec in proxy.catalog.values()]}
+
+    def openai_model(spec: Model) -> dict[str, Any]:
+        return {"id": spec.name, "object": "model", "created": int(datetime.fromisoformat(proxy.modified_at).timestamp()), "owned_by": "freetoken"}
+
+    @app.get("/v1/models")
+    async def openai_models():
+        return {"object": "list", "data": [openai_model(spec) for spec in proxy.catalog.values()]}
+
+    @app.get("/v1/models/{model_id:path}")
+    async def openai_model_detail(model_id: str):
+        spec = proxy.catalog.get(model_id)
+        if spec is None:
+            raise HTTPException(404, f"model not found: {model_id}")
+        return openai_model(spec)
 
     @app.post("/api/show")
     async def show(request: Request):
@@ -448,7 +471,83 @@ def create_app(
             payload["suffix"] = body["suffix"]
         return await inference(proxy, spec, "/v1/completions", payload, stream, duration, load_ns, chat_mode=False)
 
+    async def openai_request(request: Request, path: str):
+        body = await json_body(request)
+        spec = find_model(body)
+        stream = body.get("stream", False)
+        if not isinstance(stream, bool):
+            raise HTTPException(400, "stream must be boolean")
+        duration = keep_alive_seconds(body.get("keep_alive"), proxy.idle_seconds)
+        runtime, _ = await proxy.acquire(spec)
+        payload = {**body, "model": runtime}
+        payload.pop("keep_alive", None)
+        return await openai_inference(proxy, spec, path, payload, stream, duration)
+
+    @app.post("/v1/chat/completions")
+    async def openai_chat(request: Request):
+        return await openai_request(request, "/v1/chat/completions")
+
+    @app.post("/v1/completions")
+    async def openai_completions(request: Request):
+        return await openai_request(request, "/v1/completions")
+
+    @app.post("/v1/responses")
+    async def openai_responses(request: Request):
+        return await openai_request(request, "/v1/responses")
+
     return app
+
+
+async def openai_inference(
+    proxy: Proxy, spec: Model, path: str, payload: dict[str, Any], stream: bool, duration: float | None,
+):
+    try:
+        response = await proxy.upstream(path, payload, stream, raise_on_error=False)
+    except (Exception, asyncio.CancelledError):
+        await proxy.release(duration)
+        raise
+
+    async def finish() -> None:
+        try:
+            await response.aclose()
+        finally:
+            await proxy.release(duration)
+
+    if not stream or response.status_code >= 400:
+        try:
+            content = await response.aread()
+            if response.status_code < 400 and "json" in response.headers.get("content-type", ""):
+                try:
+                    content = json.dumps(openai_alias(json.loads(content), spec.name), ensure_ascii=False).encode()
+                except ValueError:
+                    pass
+            return Response(content, status_code=response.status_code, media_type=response.headers.get("content-type"))
+        finally:
+            await finish()
+
+    released = False
+
+    async def cleanup() -> None:
+        nonlocal released
+        if not released:
+            released = True
+            await finish()
+
+    async def chunks() -> AsyncIterator[bytes]:
+        try:
+            async for line in response.aiter_lines():
+                if line.startswith("data:"):
+                    data = line[5:].strip()
+                    if data and data != "[DONE]":
+                        try:
+                            line = "data: " + json.dumps(openai_alias(json.loads(data), spec.name), ensure_ascii=False)
+                        except ValueError:
+                            pass
+                yield (line + "\n").encode()
+        finally:
+            await cleanup()
+
+    return StreamingResponse(chunks(), headers={"content-type": response.headers.get("content-type", "text/event-stream")}, background=BackgroundTask(cleanup))
 
 
 async def inference(

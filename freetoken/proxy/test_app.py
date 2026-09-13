@@ -15,7 +15,7 @@ class GatedStream(httpx.AsyncByteStream):
 
     async def __aiter__(self):
         self.fake.stream_started.set()
-        yield b'data: {"choices":[{"delta":{"content":"Oi"}}]}\n\n'
+        yield b'data: {"model":"gemma-runtime","choices":[{"delta":{"content":"Oi"}}]}\n\n'
         await self.fake.stream_continue.wait()
         yield b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
 
@@ -32,6 +32,7 @@ class FakeUpstream:
         self.requests = []
         self.stream_started = None
         self.stream_continue = None
+        self.chat_error = False
 
     async def handle(self, request):
         self.requests.append(request)
@@ -59,17 +60,24 @@ class FakeUpstream:
         if path == "/health":
             return httpx.Response(200, json={"status": "ok" if self.ready else "loading", "maintenance": "serving" if self.ready else "loading"})
         if path == "/v1/chat/completions":
-            if json.loads(request.content)["stream"]:
+            if self.chat_error:
+                return httpx.Response(400, json={"error": {"message": "invalid request", "type": "invalid_request_error"}})
+            if json.loads(request.content).get("stream", False):
                 if self.stream_continue is not None:
                     return httpx.Response(200, stream=GatedStream(self), headers={"content-type": "text/event-stream"})
-                data = 'data: {"choices":[{"delta":{"content":"Oi"},"finish_reason":null}]}\n\ndata: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":1}}\n\ndata: [DONE]\n\n'
+                data = 'data: {"model":"gemma-runtime","choices":[{"delta":{"content":"Oi"},"finish_reason":null}]}\n\ndata: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":1}}\n\ndata: [DONE]\n\n'
                 return httpx.Response(200, content=data, headers={"content-type": "text/event-stream"})
-            return httpx.Response(200, json={"choices": [{"message": {"content": "Oi"}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 3, "completion_tokens": 1}})
+            return httpx.Response(200, json={"model": "gemma-runtime", "choices": [{"message": {"content": "Oi"}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 3, "completion_tokens": 1}})
         if path == "/v1/completions":
-            if json.loads(request.content)["stream"]:
+            if json.loads(request.content).get("stream", False):
                 data = 'data: {"choices":[{"text":"Olá","finish_reason":null}]}\n\ndata: [DONE]\n\n'
                 return httpx.Response(200, content=data, headers={"content-type": "text/event-stream"})
             return httpx.Response(200, json={"choices": [{"text": "Olá", "finish_reason": "stop"}], "usage": {"prompt_tokens": 2, "completion_tokens": 1}})
+        if path == "/v1/responses":
+            if json.loads(request.content).get("stream", False):
+                data = 'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"Oi"}\n\nevent: response.completed\ndata: {"type":"response.completed","response":{"model":"gemma-runtime","status":"completed"}}\n\n'
+                return httpx.Response(200, content=data, headers={"content-type": "text/event-stream"})
+            return httpx.Response(200, json={"id": "resp_1", "object": "response", "model": "gemma-runtime", "status": "completed", "output": [{"type": "message", "content": [{"type": "output_text", "text": "Oi"}]}]})
         return httpx.Response(404)
 
 
@@ -237,3 +245,89 @@ async def test_stop_failure_preserves_engine(system):
     await client.post("/api/chat", json={"model": "gemma", "messages": [{"role": "user", "content": "Oi"}], "stream": False, "keep_alive": 0})
     assert fake.running is True
     assert (await client.get("/api/ps")).json()["models"][0]["name"] == "gemma"
+
+
+@pytest.mark.asyncio
+async def test_openai_catalog_and_nonstreaming_requests(system):
+    client, fake, _ = system
+    listed = (await client.get("/v1/models")).json()
+    assert listed["object"] == "list"
+    assert [model["id"] for model in listed["data"]] == ["gemma", "other"]
+    assert fake.starts == 0
+    assert (await client.get("/v1/models/gemma")).json()["id"] == "gemma"
+    assert (await client.get("/v1/models/missing")).status_code == 404
+
+    payload = {"model": "gemma", "messages": [{"role": "user", "content": "Oi"}], "temperature": 0.2, "stream": False}
+    result = await client.post("/v1/chat/completions", json=payload)
+    assert result.status_code == 200
+    assert result.json()["choices"][0]["message"]["content"] == "Oi"
+    assert result.json()["model"] == "gemma"
+    upstream = next(req for req in fake.requests if req.url.path == "/v1/chat/completions")
+    sent = json.loads(upstream.content)
+    assert sent["model"] == "gemma-runtime"
+    assert sent["temperature"] == 0.2
+    assert fake.starts == 1
+
+    completion = await client.post("/v1/completions", json={"model": "gemma", "prompt": "Oi"})
+    assert completion.json()["choices"][0]["text"] == "Olá"
+    assert fake.starts == 1
+    assert (await client.post("/v1/chat/completions", json={"model": "other", "messages": []})).status_code == 409
+    assert (await client.post("/v1/chat/completions", json={"model": "missing", "messages": []})).status_code == 404
+    await asyncio.sleep(1.1)
+    assert fake.stops == 1
+
+
+@pytest.mark.asyncio
+async def test_openai_cold_start_waits_for_readiness_and_shares_start(system):
+    client, fake, app = system
+    fake.ready = False
+    app.state.proxy.start_timeout_seconds = 2
+    payload = {"model": "gemma", "messages": [{"role": "user", "content": "Oi"}]}
+    first = asyncio.create_task(client.post("/v1/chat/completions", json=payload))
+    second = asyncio.create_task(client.post("/v1/chat/completions", json=payload))
+    await asyncio.sleep(0.05)
+    assert fake.starts == 1
+    assert not any(req.url.path == "/v1/chat/completions" for req in fake.requests)
+    fake.ready = True
+    results = await asyncio.wait_for(asyncio.gather(first, second), 2)
+    assert all(result.status_code == 200 for result in results)
+    assert fake.starts == 1
+
+
+@pytest.mark.asyncio
+async def test_openai_sse_keeps_engine_until_stream_finishes(system):
+    client, fake, _ = system
+    fake.stream_started = asyncio.Event()
+    fake.stream_continue = asyncio.Event()
+    task = asyncio.create_task(client.post("/v1/chat/completions", json={"model": "gemma", "messages": [{"role": "user", "content": "Oi"}], "stream": True, "keep_alive": 0}))
+    await asyncio.wait_for(fake.stream_started.wait(), 1)
+    assert fake.stops == 0
+    upstream = next(req for req in fake.requests if req.url.path == "/v1/chat/completions")
+    assert "keep_alive" not in json.loads(upstream.content)
+    fake.stream_continue.set()
+    result = await task
+    assert result.status_code == 200
+    assert result.headers["content-type"].startswith("text/event-stream")
+    assert 'data: {"model": "gemma"' in result.text
+    assert "data: [DONE]" in result.text
+    assert fake.stops == 1
+
+
+@pytest.mark.asyncio
+async def test_openai_responses_and_upstream_errors(system):
+    client, fake, _ = system
+    result = await client.post("/v1/responses", json={"model": "gemma", "input": "Oi", "keep_alive": -1})
+    assert result.json()["object"] == "response"
+    assert result.json()["model"] == "gemma"
+    assert fake.starts == 1
+    streamed = await client.post("/v1/responses", json={"model": "gemma", "input": "Oi", "stream": True})
+    assert streamed.status_code == 200
+    assert "event: response.output_text.delta" in streamed.text
+    assert "event: response.completed" in streamed.text
+    assert '"model": "gemma"' in streamed.text
+    fake.chat_error = True
+    error = await client.post("/v1/chat/completions", json={"model": "gemma", "messages": []})
+    assert error.status_code == 400
+    assert error.json()["error"]["message"] == "invalid request"
+    fake.daemon_down = True
+    assert (await client.post("/v1/responses", json={"model": "gemma", "input": "Oi"})).status_code == 503
