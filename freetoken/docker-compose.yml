@@ -1,0 +1,50 @@
+services:
+  daemon:
+    build: .
+    ipc: host
+    restart: unless-stopped
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HOME: /root/.cache/huggingface
+      FREETOKEN_DAEMON_TOKEN: ${FREETOKEN_DAEMON_TOKEN:-local-proxy-token}
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+      - daemon_state:/root/.freetoken/daemon
+    command: ["ft", "daemon", "--host", "0.0.0.0", "--port", "19000"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - engine
+
+  freetoken-proxy:
+    build: ./proxy
+    restart: unless-stopped
+    depends_on:
+      - daemon
+    environment:
+      FT_DAEMON_URL: http://daemon:19000
+      FT_SERVE_URL: http://daemon:1919
+      FT_DAEMON_TOKEN: ${FREETOKEN_DAEMON_TOKEN:-local-proxy-token}
+      FT_MODEL_CATALOG: /app/models.json
+      FT_IDLE_SECONDS: ${FT_IDLE_SECONDS:-300}
+      FT_START_TIMEOUT_SECONDS: ${FT_START_TIMEOUT_SECONDS:-900}
+    volumes:
+      - ./models.json:/app/models.json:ro
+    networks:
+      - engine
+      - proxy
+
+volumes:
+  huggingface_cache:
+  daemon_state:
+
+networks:
+  engine:
+  proxy:
+    external: true
+    name: proxy
