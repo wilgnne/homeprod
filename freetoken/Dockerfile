@@ -28,6 +28,10 @@ RUN uv venv /opt/venv --python 3.11 && \
     uv pip install --no-cache "setuptools<70.0.0" wheel torch ninja && \
     uv pip install --no-cache "freetoken[accel]"
 
+COPY daemon-entrypoint.sh /app/daemon-entrypoint.sh
+RUN chmod +x /app/daemon-entrypoint.sh
+
 EXPOSE 1919
 
+ENTRYPOINT ["/app/daemon-entrypoint.sh"]
 CMD ["ft", "serve", "--host", "0.0.0.0", "--port", "1919"]
