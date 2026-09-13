@@ -15,7 +15,7 @@
       "model": "nvidia/Qwen3.6-35B-A3B-NVFP4",
       "args": [
         "--max-seq-len-override",
-        "32768",
+        "204800",
         "--kv-reserve-tokens",
         "204800"
       ]
