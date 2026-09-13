@@ -1,10 +1,12 @@
 # FreeToken via API Ollama
 
-Este Compose executa o `ft daemon` e um proxy leve na porta interna `11434`. O proxy oferece `/api/tags`, `/api/show`, `/api/ps`, `/api/version`, `/api/chat` e `/api/generate` para o Open WebUI. Ele inicia o modelo pedido via daemon, aguarda `/v1/models` ficar pronto e para o engine depois de cinco minutos sem requisições. O daemon e o `ft serve` não publicam portas no host.
+Este Compose executa o `ft daemon` e um proxy leve na porta interna `11434`. O proxy oferece `/api/tags`, `/api/show`, `/api/ps`, `/api/version`, `/api/chat` e `/api/generate` para o Open WebUI. Ele inicia o modelo pedido via daemon, aguarda `/health` indicar `status: ok` e `maintenance: serving` antes de enviar o chat, e para o engine depois de cinco minutos sem requisições. O daemon e o `ft serve` não publicam portas no host.
 
 Edite [models.json](models.json) para definir os modelos visíveis. Cada entrada contém `name` (o alias exposto ao cliente), `model` (ID Hugging Face ou caminho no container do daemon) e `args` opcionais para `ft serve`. Para caminhos locais, monte o diretório de modelos no serviço `daemon` e use o caminho dentro desse container. O catálogo é lido ao iniciar o proxy; reinicie-o após editar o arquivo. A primeira entrada usa `google/gemma-4-E2B`, presente no exemplo original deste repositório.
 
 Crie a rede compartilhada `proxy` se ainda não existir e suba os serviços com `docker compose -f freetoken/docker-compose.yml up -d --build`. O serviço `freetoken-proxy` ingressa nessa rede e pode ser alcançado pelo Open WebUI em `http://freetoken-proxy:11434`. O Compose em `ollama/` configura `OLLAMA_BASE_URLS` com o Ollama atual e o novo proxy. Em instalações existentes, o Open WebUI pode manter no banco as URLs alteradas pelo painel; nesse caso, adicione a URL em **Admin → Connections → Ollama**. Não é necessário redefinir as outras configurações persistidas.
+
+O proxy não carrega modelos ao subir. A primeira requisição a um modelo inicia o engine e aguarda a carga terminar antes de enviar o chat; não é preciso reenviar a mensagem. O mesmo vale após o prazo idle descarregar o modelo. O Open WebUI usa timeout de 30 minutos para cobrir cargas frias longas.
 
 `FT_IDLE_SECONDS` (padrão 300) e `FT_START_TIMEOUT_SECONDS` (padrão 900) podem ser ajustados via ambiente do Compose. `keep_alive` em `/api/chat` e `/api/generate` aceita segundos ou durações como `10m`; `0` descarrega após a requisição e valor negativo mantém o modelo carregado. Um generate sem prompt com `keep_alive: 0` descarrega o modelo, como no Ollama. O daemon aceita `FREETOKEN_DAEMON_TOKEN`; o Compose usa o mesmo valor no proxy e um token local padrão quando a variável não é definida.
 

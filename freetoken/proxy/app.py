@@ -219,11 +219,17 @@ class Proxy:
         until = time.monotonic() + self.start_timeout_seconds
         while True:
             try:
-                response = await self.client.get(self.serve_url + "/v1/models", timeout=3)
-                if response.status_code == 200:
-                    data = response.json().get("data") or []
-                    if data and isinstance(data[0].get("id"), str):
-                        return data[0]["id"]
+                health = await self.client.get(self.serve_url + "/health", timeout=3)
+                if health.status_code == 200:
+                    report = health.json()
+                    if report.get("status") == "error":
+                        raise HTTPException(503, f"FreeToken engine failed to load: {report.get('message', 'unknown error')}")
+                    if report.get("status") == "ok" and report.get("maintenance", "serving") == "serving":
+                        response = await self.client.get(self.serve_url + "/v1/models", timeout=3)
+                        if response.status_code == 200:
+                            data = response.json().get("data") or []
+                            if data and isinstance(data[0].get("id"), str):
+                                return data[0]["id"]
             except (httpx.RequestError, ValueError, AttributeError, TypeError):
                 pass
             st = await self.status()
@@ -231,7 +237,7 @@ class Proxy:
                 raise HTTPException(503, "FreeToken engine exited while loading")
             if time.monotonic() >= until:
                 raise HTTPException(504, "FreeToken model load timed out; daemon may still be loading")
-            await asyncio.sleep(min(1, max(0, until - time.monotonic())))
+            await asyncio.sleep(min(0.25, max(0, until - time.monotonic())))
 
     async def release(self, duration: float | None) -> None:
         async with self.lock:

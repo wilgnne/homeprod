@@ -53,7 +53,10 @@ class FakeUpstream:
                 self.running = False
                 return httpx.Response(200, json={"already": False})
         if path == "/v1/models":
-            return httpx.Response(200 if self.ready else 503, json={"data": [{"id": "gemma-runtime"}]} if self.ready else {})
+            # FreeToken exposes this route even while the backend is loading.
+            return httpx.Response(200, json={"data": [{"id": "gemma-runtime"}]})
+        if path == "/health":
+            return httpx.Response(200, json={"status": "ok" if self.ready else "loading", "maintenance": "serving" if self.ready else "loading"})
         if path == "/v1/chat/completions":
             if json.loads(request.content)["stream"]:
                 if self.stream_continue is not None:
@@ -115,6 +118,35 @@ async def test_concurrent_start_is_single_flight(system):
     assert first.status_code == second.status_code == 200
     assert first.json()["message"]["content"] == "Oi"
     assert fake.starts == 1
+
+
+@pytest.mark.asyncio
+async def test_first_chat_waits_for_real_readiness(system):
+    client, fake, app = system
+    fake.ready = False
+    app.state.proxy.start_timeout_seconds = 2
+    body = {"model": "gemma", "messages": [{"role": "user", "content": "Oi"}], "stream": False}
+    task = asyncio.create_task(client.post("/api/chat", json=body))
+    await asyncio.sleep(0.05)
+    assert fake.starts == 1
+    assert not any(req.url.path == "/v1/chat/completions" for req in fake.requests)
+    fake.ready = True
+    result = await asyncio.wait_for(task, 2)
+    assert result.status_code == 200
+    assert result.json()["message"]["content"] == "Oi"
+
+
+@pytest.mark.asyncio
+async def test_proxy_start_does_not_load_model():
+    fake = FakeUpstream()
+    upstream = httpx.AsyncClient(transport=httpx.MockTransport(fake.handle))
+    app = create_app({"gemma": Model("gemma", "google/gemma-4-E2B")}, "2026-01-01T00:00:00Z", daemon_url="http://daemon", serve_url="http://serve", client=upstream)
+    async with app.router.lifespan_context(app):
+        await asyncio.sleep(0.01)
+        assert fake.starts == 0
+        assert app.state.proxy.active == 0
+        assert app.state.proxy.deadline is None
+    await upstream.aclose()
 
 
 @pytest.mark.asyncio

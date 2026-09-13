@@ -34,6 +34,7 @@ services:
       - open-webui_data:/app/backend/data
     environment:
       - OLLAMA_BASE_URLS=http://ollama:11434;http://freetoken-proxy:11434
+      - AIOHTTP_CLIENT_TIMEOUT=1800
       - OPEN_WEBUI_OVERRIDE_NUM_CTX=131072
       - ENABLE_REASONING_PREVIEW=True         
     depends_on:

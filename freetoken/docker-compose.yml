@@ -11,6 +11,11 @@ services:
       - huggingface_cache:/root/.cache/huggingface
       - daemon_state:/root/.freetoken/daemon
     command: ["ft", "daemon", "--host", "0.0.0.0", "--port", "19000"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:19000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     deploy:
       resources:
         reservations:
@@ -25,7 +30,8 @@ services:
     build: ./proxy
     restart: unless-stopped
     depends_on:
-      - daemon
+      daemon:
+        condition: service_healthy
     environment:
       FT_DAEMON_URL: http://daemon:19000
       FT_SERVE_URL: http://daemon:1919
