@@ -1,0 +1,25 @@
+[project]
+name = "freetoken-proxy"
+version = "0.1.0"
+description = "FreeToken Ollama and OpenAI HTTP proxy"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "httpx>=0.28",
+    "pydantic>=2.0",
+    "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[project.scripts]
+freetoken-proxy = "proxy.main:main"

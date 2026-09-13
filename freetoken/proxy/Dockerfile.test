@@ -1,0 +1,16 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Copy project files
+COPY pyproject.toml requirements.txt .
+COPY proxy/ ./proxy/
+COPY tests/ ./tests/
+
+# Install dependencies
+RUN pip install --no-cache-dir \
+    -r requirements.txt \
+    "pytest>=8.0" "pytest-cov>=5.0" "pytest-asyncio>=0.24"
+
+# Run tests
+CMD ["pytest", "tests/", "-v", "--tb=short", "-W", "ignore::DeprecationWarning"]
