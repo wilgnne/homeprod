@@ -17,7 +17,7 @@
         "--max-seq-len-override",
         "32768",
         "--kv-reserve-tokens",
-        "32768"
+        "204800"
       ]
     },
     {
