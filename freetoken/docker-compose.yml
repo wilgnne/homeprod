@@ -44,8 +44,10 @@ services:
     volumes:
       - ./models.json:/app/models.json:ro
     networks:
-      - engine
-      - proxy
+      engine:
+      proxy:
+        aliases:
+          - freetoken-proxy
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.freetoken.rule=Host(`freetoken.lab.wilgnne.dev`)"
