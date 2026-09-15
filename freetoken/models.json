@@ -6,6 +6,11 @@
       "args": []
     },
     {
+      "name": "gemma-4-E2B-NVFP4",
+      "model": "unsloth/gemma-4-E2B-it-NVFP4",
+      "args": []
+    },
+    {
       "name": "qwen3.8-27b-nvfp4",
       "model": "RadixArk/Qwen3.8-27B-NVFP4",
       "args": [
