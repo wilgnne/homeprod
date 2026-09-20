@@ -1,0 +1,45 @@
+services:
+  9router:
+    build: .
+    image: homeprod-9router:local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "20128"
+      DATA_DIR: /data
+      BASE_URL: https://9router.lab.wilgnne.dev
+      AUTH_COOKIE_SECURE: "true"
+      REQUIRE_API_KEY: "true"
+    expose:
+      - "20128"
+    volumes:
+      - 9router_data:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:20128/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.9router.rule=Host(`9router.lab.wilgnne.dev`)"
+      - "traefik.http.routers.9router.entrypoints=websecure"
+      - "traefik.http.routers.9router.tls=true"
+      - "traefik.http.routers.9router.service=9router"
+      - "traefik.http.services.9router.loadbalancer.server.port=20128"
+      - "traefik.docker.network=proxy"
+
+volumes:
+  9router_data:
+
+networks:
+  proxy:
+    external: true
+    name: proxy
