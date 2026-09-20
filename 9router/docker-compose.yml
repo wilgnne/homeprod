@@ -3,6 +3,8 @@ services:
     build: .
     image: homeprod-9router:local
     restart: unless-stopped
+    env_file:
+      - ./.env
     environment:
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
