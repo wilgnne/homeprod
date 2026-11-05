@@ -9,6 +9,10 @@ services:
     init: true
     shm_size: "1gb"
     command: serve --port 6768 --pairing-address ${ORCA_PAIRING_ADDRESS} ${ORCA_SERVE_ARGS:-}
+    environment:
+      CODEX_VERSION: ${CODEX_VERSION:-latest}
+      GIT_USER_NAME: ${GIT_USER_NAME:-}
+      GIT_USER_EMAIL: ${GIT_USER_EMAIL:-}
     volumes:
       - orca-home:/home/orca
     healthcheck:

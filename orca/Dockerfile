@@ -44,7 +44,7 @@ RUN case "$TARGETARCH" in \
 
 RUN useradd --create-home --shell /bin/bash orca
 
-RUN su orca -c "sh -c 'curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh'"
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/orca-entrypoint
 
 USER orca
 WORKDIR /home/orca
@@ -56,4 +56,4 @@ EXPOSE 6768
 
 # Chromium cannot create its sandbox namespaces in an unprivileged
 # container; the container is the isolation boundary instead.
-ENTRYPOINT ["/opt/orca/AppRun", "--no-sandbox"]
+ENTRYPOINT ["/usr/local/bin/orca-entrypoint"]
