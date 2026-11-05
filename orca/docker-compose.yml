@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        ORCA_VERSION: v1.4.205
+        ORCA_VERSION: v1.4.250
     restart: unless-stopped
     init: true
     shm_size: "1gb"
