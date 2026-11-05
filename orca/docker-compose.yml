@@ -1,6 +1,8 @@
 services:
   orca-server:
     build:
+      context: .
+      dockerfile: Dockerfile
       args:
         ORCA_VERSION: v1.4.205
     restart: unless-stopped
@@ -23,7 +25,7 @@ services:
       - "traefik.http.routers.orca.entrypoints=websecure"
       - "traefik.http.routers.orca.tls=true"
       - "traefik.http.routers.orca.service=orca"
-      - "traefik.http.services.orca.loadbalancer.server.port=20128"
+      - "traefik.http.services.orca.loadbalancer.server.port=6768"
       - "traefik.docker.network=proxy"
 
 volumes:

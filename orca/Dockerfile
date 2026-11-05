@@ -16,9 +16,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxrandr2 libxrender1 libxss1 libxtst6 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN if [ "$$TARGETARCH" = arm64 ]; then asset=orca-linux-arm64.AppImage; else asset=orca-linux.AppImage; fi \
+RUN case "$TARGETARCH" in \
+      amd64) asset=orca-linux.AppImage ;; \
+      arm64) asset=orca-linux-arm64.AppImage ;; \
+      *) echo "Unsupported target architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
     && curl -fL --retry 3 -o /tmp/orca.AppImage \
-      "https://github.com/stablyai/orca/releases/download/$$ORCA_VERSION/$$asset" \
+      "https://github.com/stablyai/orca/releases/download/$ORCA_VERSION/$asset" \
     && chmod +x /tmp/orca.AppImage \
     && cd /opt && /tmp/orca.AppImage --appimage-extract >/dev/null \
     && mv /opt/squashfs-root /opt/orca \
