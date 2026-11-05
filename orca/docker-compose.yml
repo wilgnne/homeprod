@@ -1,0 +1,35 @@
+services:
+  orca-server:
+    build:
+      args:
+        ORCA_VERSION: v1.4.205
+    restart: unless-stopped
+    init: true
+    shm_size: "1gb"
+    command: serve --port 6768 --pairing-address ${ORCA_PAIRING_ADDRESS} ${ORCA_SERVE_ARGS:-}
+    volumes:
+      - orca-home:/home/orca
+    healthcheck:
+      test: ["CMD", "bash", "-c", ": > /dev/tcp/127.0.0.1/6768"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.orca.rule=Host(`orca.lab.wilgnne.dev`)"
+      - "traefik.http.routers.orca.entrypoints=websecure"
+      - "traefik.http.routers.orca.tls=true"
+      - "traefik.http.routers.orca.service=orca"
+      - "traefik.http.services.orca.loadbalancer.server.port=20128"
+      - "traefik.docker.network=proxy"
+
+volumes:
+  orca-home: {}
+
+networks:
+  proxy:
+    external: true
+    name: proxy
