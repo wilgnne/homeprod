@@ -20,7 +20,7 @@ RUN (type -p wget >/dev/null || (apt-get update &&  apt-get install wget -y)) \
 	&& apt-get install gh -y
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      bash ca-certificates curl file git jq openssh-client procps \
+      bash ca-certificates curl dbus dbus-user-session gosu file git jq openssh-client procps \
       xvfb zlib1g-dev libgtk-3-0t64 libpango-1.0-0 libcairo2 \
       libnss3 libgbm1 libdrm2 libasound2t64 libcups2t64 libxkbcommon0 \
       libatk1.0-0t64 libatk-bridge2.0-0t64 libatspi2.0-0t64 \
@@ -46,7 +46,6 @@ RUN useradd --create-home --shell /bin/bash orca
 
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/orca-entrypoint
 
-USER orca
 WORKDIR /home/orca
 ENV PATH=/home/orca/.local/bin:/opt/orca/resources/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     LIBGL_ALWAYS_SOFTWARE=1
