@@ -41,14 +41,16 @@ RUN case "$TARGETARCH" in \
     && chmod -R a+rX /opt/orca \
     && rm /tmp/orca.AppImage
 
+
 RUN useradd --create-home --shell /bin/bash orca
+
+RUN su orca -c "sh -c 'curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh'"
 
 USER orca
 WORKDIR /home/orca
 ENV PATH=/home/orca/.local/bin:/opt/orca/resources/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     LIBGL_ALWAYS_SOFTWARE=1
 
-RUN sh -c "curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh"
 
 EXPOSE 6768
 
