@@ -4,12 +4,14 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        ORCA_VERSION: v1.4.250
+        ORCA_VERSION: v1.4.253
     restart: unless-stopped
     init: true
     shm_size: "1gb"
     command: serve --port 6768 --pairing-address ${ORCA_PAIRING_ADDRESS} ${ORCA_SERVE_ARGS:-}
     environment:
+      # SSH target-management APIs require the Electron runtime.
+      ORCA_SERVE_RUNTIME: electron
       CODEX_VERSION: ${CODEX_VERSION:-latest}
       GIT_USER_NAME: ${GIT_USER_NAME:-}
       GIT_USER_EMAIL: ${GIT_USER_EMAIL:-}
