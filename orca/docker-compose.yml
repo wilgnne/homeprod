@@ -15,6 +15,8 @@ services:
       GIT_USER_EMAIL: ${GIT_USER_EMAIL:-}
     volumes:
       - orca-home:/home/orca
+      - coder-config:/home/orca/.config/coderv2
+      - coder-ssh:/home/orca/.ssh
     healthcheck:
       test: ["CMD", "bash", "-c", ": > /dev/tcp/127.0.0.1/6768"]
       interval: 30s
@@ -34,6 +36,8 @@ services:
 
 volumes:
   orca-home: {}
+  coder-config: {}
+  coder-ssh: {}
 
 networks:
   proxy:

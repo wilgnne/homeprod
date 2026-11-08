@@ -28,6 +28,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxrandr2 libxrender1 libxss1 libxtst6 \
     && rm -rf /var/lib/apt/lists/*
 
+# Install the CLI binary; development workspaces run on the remote Coder.
+RUN curl -fsSL https://coder.com/install.sh -o /tmp/install-coder.sh \
+    && sh /tmp/install-coder.sh --method standalone \
+    && rm /tmp/install-coder.sh \
+    && coder version
+
 RUN case "$TARGETARCH" in \
       amd64) asset=orca-linux.AppImage ;; \
       arm64) asset=orca-linux-arm64.AppImage ;; \
@@ -48,6 +54,7 @@ COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/orca-entrypoint
 
 WORKDIR /home/orca
 ENV PATH=/home/orca/.local/bin:/opt/orca/resources/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    CODER_CONFIG_DIR=/home/orca/.config/coderv2 \
     LIBGL_ALWAYS_SOFTWARE=1
 
 
