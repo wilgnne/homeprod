@@ -4,6 +4,21 @@
       "version": "1.10.0",
       "resolved": "ghcr.io/devcontainers/features/docker-outside-of-docker@sha256:c2c2cf829505ead8e4892c88c31b6594ae94a2bbb209e16e1fac456c1a3a624e",
       "integrity": "sha256:c2c2cf829505ead8e4892c88c31b6594ae94a2bbb209e16e1fac456c1a3a624e"
+    },
+    "ghcr.io/devcontainers/features/node:2": {
+      "version": "2.1.1",
+      "resolved": "ghcr.io/devcontainers/features/node@sha256:2a19d3b0b3879437637cfd292eb29fee0afcfbe6364e33db9afc4f80c5c1f956",
+      "integrity": "sha256:2a19d3b0b3879437637cfd292eb29fee0afcfbe6364e33db9afc4f80c5c1f956"
+    },
+    "ghcr.io/dirien/devcontainer-feature-codex/codex:0": {
+      "version": "0.0.1",
+      "resolved": "ghcr.io/dirien/devcontainer-feature-codex/codex@sha256:7eddcc74728e02c6fe1e5d12688d98e78bb8675a2c5a5d6a89040568b3cf2546",
+      "integrity": "sha256:7eddcc74728e02c6fe1e5d12688d98e78bb8675a2c5a5d6a89040568b3cf2546"
+    },
+    "ghcr.io/wilgnne/devcontainer-feature-orca-web/orca-web:1": {
+      "version": "1.2.1",
+      "resolved": "ghcr.io/wilgnne/devcontainer-feature-orca-web/orca-web@sha256:c4331d4ae6a39ecf354284ff3b188f512825a7f2c55530d4380bb78cbe825ec8",
+      "integrity": "sha256:c4331d4ae6a39ecf354284ff3b188f512825a7f2c55530d4380bb78cbe825ec8"
     }
   }
 }

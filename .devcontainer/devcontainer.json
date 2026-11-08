@@ -2,16 +2,59 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
 {
 	"name": "Ubuntu",
-	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/base:ubuntu26.04",
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
+              "ghcr.io/devcontainers/features/node:2": {
+                        "version": "lts",
+	                "pnpmVersion": "none",
+			"installYarnUsingApt": true
+	        },
+		"ghcr.io/dirien/devcontainer-feature-codex/codex:0": {},
+		"ghcr.io/wilgnne/devcontainer-feature-orca-web/orca-web:1": {
+			"version": "v1.4.253"
+		},
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
 			"moby": false,
 			"installDockerBuildx": true,
 			"version": "latest",
 			"dockerDashComposeVersion": "latest"
+		}
+	},
+	// Preserve the existing Orca profile when the feature default volume changes.
+	"mounts": [
+		{
+			"source": "homeprod-orca-web",
+			"target": "/var/lib/orca-web",
+			"type": "volume"
+		}
+	],
+	"customizations": {
+		"coder": {
+			"apps": [
+				{
+					"slug": "orca-pair",
+					"displayName": "Parear Orca Desktop",
+					"url": "http://localhost:6772",
+					"subdomain": true,
+					"share": "owner",
+					"openIn": "tab"
+				},
+				{
+					"slug": "orca",
+					"displayName": "Orca Web",
+					"url": "http://localhost:6770",
+					"subdomain": true,
+					"share": "public",
+					"openIn": "tab",
+					"healthCheck": {
+						"url": "http://localhost:6770/",
+						"interval": 10,
+						"threshold": 6
+					}
+				}
+			]
 		}
 	}
 
