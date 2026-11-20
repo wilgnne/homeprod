@@ -1,0 +1,24 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Synthetic Arcane 3 mock (not captured from a real installation)", "version": "test-1"},
+  "paths": {
+    "/api/containers/{id}": {
+      "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}],
+      "get": {"operationId": "getContainer", "tags": ["containers"], "summary": "Get container", "responses": {"200": {"description": "Container", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Container"}}}}}},
+      "delete": {"operationId": "deleteContainer", "tags": ["containers"], "summary": "Delete container permanently", "responses": {"200": {"description": "Removed", "content": {"application/json": {"schema": {"type": "object"}}}}}}
+    },
+    "/api/containers": {
+      "get": {"operationId": "listContainers", "tags": ["containers"], "summary": "List containers", "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 20}}], "responses": {"200": {"description": "Containers", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Container"}}}}}}}
+    },
+    "/api/containers/{id}/restart": {
+      "post": {"operationId": "restartContainer", "tags": ["containers"], "summary": "Restart container", "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "properties": {"timeout": {"type": "integer", "minimum": 0}}, "required": ["timeout"], "additionalProperties": false}}}}, "responses": {"200": {"description": "Restarted", "content": {"application/json": {"schema": {"type": "object"}}}}}}
+    },
+    "/api/containers/{id}/logs": {
+      "get": {"operationId": "streamLogs", "tags": ["containers"], "summary": "Stream container logs", "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Logs", "content": {"application/x-ndjson": {"schema": {"type": "string"}}}}}}
+    },
+    "/api/api-keys": {
+      "get": {"operationId": "listApiKeys", "tags": ["api-keys"], "summary": "List API keys", "responses": {"200": {"description": "Keys", "content": {"application/json": {"schema": {"type": "array"}}}}}}
+    }
+  },
+  "components": {"schemas": {"Container": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}}, "required": ["id", "name"], "additionalProperties": false}}}
+}

@@ -1,0 +1,46 @@
+services:
+  arcane-mcp:
+    build: .
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PORT: "3000"
+      ARCANE_URL: "${ARCANE_URL:-}"
+      ARCANE_API_KEY: "${ARCANE_API_KEY:-}"
+      MCP_AUTH_TOKEN: "${MCP_AUTH_TOKEN:?Set MCP_AUTH_TOKEN}"
+      MCP_APPROVAL_ADMIN_TOKEN: "${MCP_APPROVAL_ADMIN_TOKEN:-}"
+      READ_ONLY: "${READ_ONLY:-false}"
+      ALLOW_MUTATIONS: "${ALLOW_MUTATIONS:-true}"
+      ALLOW_DESTRUCTIVE: "${ALLOW_DESTRUCTIVE:-true}"
+      WRITE_POLICY: "${WRITE_POLICY:-read-only}"
+      MCP_ALLOW_HEADER_TARGETS: "${MCP_ALLOW_HEADER_TARGETS:-false}"
+      MCP_ALLOWED_ORIGINS: "${MCP_ALLOWED_ORIGINS:-}"
+      MCP_ALLOWED_HOSTS: "${MCP_ALLOWED_HOSTS:-${MCP_DOMAIN:-arcane-mcp.lab.wilgnne.dev}}"
+      MCP_ALLOWED_REQUEST_ORIGINS: "${MCP_ALLOWED_REQUEST_ORIGINS:-}"
+      OPENAPI_TTL_SECONDS: "${OPENAPI_TTL_SECONDS:-3600}"
+      REQUEST_TIMEOUT_MS: "${REQUEST_TIMEOUT_MS:-30000}"
+      MAX_RESPONSE_BYTES: "${MAX_RESPONSE_BYTES:-1048576}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+    ports:
+      - "127.0.0.1:${MCP_PORT:-3000}:3000"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.arcane-mcp.rule=Host(`${MCP_DOMAIN:-arcane-mcp.lab.wilgnne.dev}`) && Path(`/mcp`)"
+      - "traefik.http.routers.arcane-mcp.entrypoints=websecure"
+      - "traefik.http.routers.arcane-mcp.tls=true"
+      - "traefik.http.routers.arcane-mcp.service=arcane-mcp"
+      - "traefik.http.services.arcane-mcp.loadbalancer.server.port=3000"
+      - "traefik.docker.network=proxy"
+
+networks:
+  proxy:
+    external: true
