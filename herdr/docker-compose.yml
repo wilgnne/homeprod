@@ -6,6 +6,8 @@ services:
         CODEX_VERSION: ${CODEX_VERSION:-latest}
     restart: unless-stopped
     init: true
+    security_opt:
+      - seccomp=unconfined
     volumes:
       - herdr-home:/home/herdr
       - herdr-workspaces:/home/herdr/workspaces

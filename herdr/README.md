@@ -4,6 +4,17 @@ A imagem Ubuntu 24.04 instala o binário Linux estático do Herdr Core (`hc`) 0.
 
 A imagem final inclui OpenSSH, Git, GitHub CLI (`gh`), curl, wget e Codex CLI. O Codex é instalado durante o build em `/opt/codex`, com o comando disponível em `/usr/local/bin/codex`. Defina `CODEX_VERSION` no `.env` para fixar uma versão. A configuração do usuário em `~/.codex` fica no volume do home. [Instalador oficial do Codex](https://chatgpt.com/codex/install.sh).
 
+## Sandbox do Codex
+
+A imagem inclui o Bubblewrap do Ubuntu em `/usr/bin/bwrap`. Após reconstruir e recriar o serviço com `docker compose up -d --build herdr`, conecte por SSH e teste como usuário `herdr`:
+
+```sh
+bwrap --version
+codex sandbox -- /usr/bin/true
+```
+
+O Compose usa `seccomp=unconfined` no serviço `herdr`, desativando o filtro seccomp do Docker para esse contêiner e permitindo que o Bubblewrap crie os namespaces usados pelo sandbox do Codex. Se o teste falhar ao criar um namespace, confira as políticas de namespaces de usuário do host. Se o aviso antigo continuar em uma sessão do Codex, use `/daemon` para reiniciar o servidor em segundo plano. [Pré-requisitos do Codex](https://developers.openai.com/codex/concepts/sandboxing#prerequisites), [seccomp no Docker](https://docs.docker.com/engine/security/seccomp/).
+
 ## DNS e Traefik
 
 - Escolha o nome em `HERDR_SSH_HOST` no `.env` e aponte esse alias no DNS para o host do Traefik. Use CNAME para um nome que já resolva para esse host ou A/AAAA para seus endereços. O alias é usado pelo cliente SSH.

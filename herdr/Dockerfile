@@ -22,7 +22,7 @@ FROM ubuntu:24.04
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates curl gh git openssh-server wget \
+      bubblewrap ca-certificates curl gh git openssh-server wget \
     && rm -rf /var/lib/apt/lists/* /etc/ssh/ssh_host_* \
     && useradd --create-home --shell /bin/bash herdr \
     && install -d -m 0700 /var/lib/herdr-ssh \
