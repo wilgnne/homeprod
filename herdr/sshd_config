@@ -1,0 +1,12 @@
+Port 22
+HostKey /var/lib/herdr-ssh/ssh_host_ed25519_key
+AuthorizedKeysFile /etc/ssh/herdr_authorized_keys
+AllowUsers herdr
+PermitRootLogin no
+PubkeyAuthentication yes
+AuthenticationMethods publickey
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+UsePAM yes
+DisableForwarding yes
+Subsystem sftp internal-sftp
