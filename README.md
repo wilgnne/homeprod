@@ -6,3 +6,4 @@ Servicos self-hosted mantidos neste repositorio:
 - `outline/`: Outline
 - `freetoken/`: FreeToken com proxy Ollama para Open WebUI
 - `9router/`: 9Router atrás do Traefik em `9router.lab.wilgnne.dev`
+- [`herdr/`](herdr/README.md) — Herdr Core via SSH pelo Traefik
