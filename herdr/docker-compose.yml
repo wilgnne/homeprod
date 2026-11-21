@@ -1,5 +1,6 @@
 services:
   herdr:
+    hostname: herdr-core
     build:
       context: .
       args:

@@ -36,6 +36,11 @@ RUN curl -fsSL --retry 3 https://chatgpt.com/codex/install.sh -o /tmp/install-co
     && rm /tmp/install-codex.sh \
     && runuser -u herdr -- /usr/local/bin/codex --version
 
+RUN curl -fsSL --retry 3 https://coder.com/install.sh -o /tmp/install-coder.sh \
+    && sh /tmp/install-coder.sh --method standalone \
+    && rm /tmp/install-coder.sh \
+    && runuser -u herdr -- /usr/local/bin/coder version
+
 COPY --from=download /usr/local/bin/herdr-core /usr/local/bin/herdr-core
 RUN ln -s herdr-core /usr/local/bin/hc
 
