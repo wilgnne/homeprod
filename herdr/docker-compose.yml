@@ -1,6 +1,9 @@
 services:
   herdr:
-    build: .
+    build:
+      context: .
+      args:
+        CODEX_VERSION: ${CODEX_VERSION:-latest}
     restart: unless-stopped
     init: true
     volumes:

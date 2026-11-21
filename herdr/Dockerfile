@@ -22,11 +22,19 @@ FROM ubuntu:24.04
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates git openssh-server \
+      ca-certificates curl gh git openssh-server wget \
     && rm -rf /var/lib/apt/lists/* /etc/ssh/ssh_host_* \
     && useradd --create-home --shell /bin/bash herdr \
     && install -d -m 0700 /var/lib/herdr-ssh \
     && install -d -m 0700 -o herdr -g herdr /home/herdr/workspaces
+
+ARG CODEX_VERSION=latest
+# Keep the installation outside the persistent home used by SSH sessions.
+RUN curl -fsSL --retry 3 https://chatgpt.com/codex/install.sh -o /tmp/install-codex.sh \
+    && CODEX_HOME=/opt/codex CODEX_INSTALL_DIR=/usr/local/bin CODEX_NON_INTERACTIVE=1 \
+      sh /tmp/install-codex.sh --release "$CODEX_VERSION" \
+    && rm /tmp/install-codex.sh \
+    && runuser -u herdr -- /usr/local/bin/codex --version
 
 COPY --from=download /usr/local/bin/herdr-core /usr/local/bin/herdr-core
 RUN ln -s herdr-core /usr/local/bin/hc

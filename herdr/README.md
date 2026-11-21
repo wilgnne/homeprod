@@ -1,6 +1,8 @@
 # Herdr Core via SSH
 
-A imagem Ubuntu 24.04 instala o binário Linux estático do Herdr Core (`hc`) 0.1.21 para `amd64` e `arm64`, com SHA-256 fixado por arquitetura. A etapa de download usa certificados CA, curl, tar e sha256sum. A imagem final inclui OpenSSH e Git para uso nos workspaces. Rust, Zig 0.16 e just são dependências da compilação do Herdr a partir do código-fonte. [README oficial](https://github.com/herdrdev/herdr-core), [manifesto da versão](https://releases.herdr.dev/core/0.1.21/manifest.json).
+A imagem Ubuntu 24.04 instala o binário Linux estático do Herdr Core (`hc`) 0.1.21 para `amd64` e `arm64`, com SHA-256 fixado por arquitetura. A etapa de download usa certificados CA, curl, tar e sha256sum. Rust, Zig 0.16 e just são dependências da compilação do Herdr a partir do código-fonte. [README oficial](https://github.com/herdrdev/herdr-core), [manifesto da versão](https://releases.herdr.dev/core/0.1.21/manifest.json).
+
+A imagem final inclui OpenSSH, Git, GitHub CLI (`gh`), curl, wget e Codex CLI. O Codex é instalado durante o build em `/opt/codex`, com o comando disponível em `/usr/local/bin/codex`. Defina `CODEX_VERSION` no `.env` para fixar uma versão. A configuração do usuário em `~/.codex` fica no volume do home. [Instalador oficial do Codex](https://chatgpt.com/codex/install.sh).
 
 ## DNS e Traefik
 
