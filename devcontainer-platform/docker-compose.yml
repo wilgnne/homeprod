@@ -1,0 +1,71 @@
+name: devcontainer-platform
+
+services:
+  checkout-helper:
+    image: ghcr.io/wilgnne/devcontainer-platform-checkout-helper:${PLATFORM_IMAGE_TAG:?Defina PLATFORM_IMAGE_TAG}
+    scale: 0
+  platform:
+    image: ghcr.io/wilgnne/devcontainer-platform:${PLATFORM_IMAGE_TAG:?Defina PLATFORM_IMAGE_TAG}
+    environment:
+      PLATFORM_GITHUB_DIR: /github
+      PLATFORM_GITHUB_VOLUME: ${COMPOSE_PROJECT_NAME}_github-auth
+      PLATFORM_GITHUB_IMAGE: ghcr.io/wilgnne/devcontainer-platform:${PLATFORM_IMAGE_TAG}
+      CHECKOUT_HELPER_IMAGE: ghcr.io/wilgnne/devcontainer-platform-checkout-helper:${PLATFORM_IMAGE_TAG}
+      DEVCONTAINER_RUNNER_IMAGE: ${DEVCONTAINER_RUNNER_IMAGE-ghcr.io/wilgnne/devcontainer-platform:${PLATFORM_IMAGE_TAG}}
+      DEVCONTAINER_SOCKET_SOURCE: ${DOCKER_SOCKET_SOURCE:-/var/run/docker.sock}
+      DEVCONTAINER_SOCKET_GID: ${DOCKER_SOCKET_GID:?Defina o GID do socket Docker no .env}
+      DEVCONTAINER_AGENT_VOLUME: ${COMPOSE_PROJECT_NAME}_devpod-v0.6.15
+      DEVCONTAINER_GITHUB_TOOLS_VOLUME: ${COMPOSE_PROJECT_NAME}_gh-v2.83.2
+      PLATFORM_CODEX_DIR: /codex
+      PLATFORM_CODEX_VOLUME: ${COMPOSE_PROJECT_NAME}_codex-auth
+      PLATFORM_CODEX_IMAGE: ghcr.io/wilgnne/devcontainer-platform:${PLATFORM_IMAGE_TAG}
+      PLATFORM_SSH_ADDR: :2223
+      PLATFORM_SSH_HOST: ${PLATFORM_SSH_HOST:-${PLATFORM_WEB_HOST:-devcontainer-platform.lab.wilgnne.dev}}
+      PLATFORM_SSH_PORT: ${PLATFORM_SSH_PORT:-2223}
+      PLATFORM_SSH_WAIT: ${PLATFORM_SSH_WAIT:-120s}
+    group_add:
+      - "${DOCKER_SOCKET_GID:?Defina o GID do socket Docker no .env}"
+    volumes:
+      - platform-data:/data
+      - github-auth:/github
+      - type: bind
+        source: ${DOCKER_SOCKET_SOURCE:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: false
+      - codex-auth:/codex
+      - devpod-v0.6.15:/opt/devcontainer-platform-agent:ro
+      - gh-v2.83.2:/opt/devcontainer-platform-github:ro
+    restart: unless-stopped
+    networks:
+      - default
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.dcp-web.rule=Host(`${PLATFORM_WEB_HOST:-devcontainer-platform.lab.wilgnne.dev}`)"
+      - "traefik.http.routers.dcp-web.entrypoints=websecure"
+      - "traefik.http.routers.dcp-web.tls=true"
+      - "traefik.http.routers.dcp-web.service=dcp-web"
+      - "traefik.http.services.dcp-web.loadbalancer.server.port=8080"
+      - "traefik.tcp.routers.dcp-ssh.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.dcp-ssh.entrypoints=${TRAEFIK_SSH_ENTRYPOINT:-dcpssh}"
+      - "traefik.tcp.routers.dcp-ssh.service=dcp-ssh"
+      - "traefik.tcp.services.dcp-ssh.loadbalancer.server.port=2223"
+
+volumes:
+  platform-data:
+    driver: local
+  github-auth:
+    driver: local
+  codex-auth:
+    driver: local
+  devpod-v0.6.15:
+    driver: local
+  gh-v2.83.2:
+    driver: local
+
+networks:
+  proxy:
+    external: true
+    name: proxy
